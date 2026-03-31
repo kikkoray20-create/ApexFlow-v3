@@ -13,7 +13,6 @@ import Customers from './components/Customers';
 import CustomerFirms from './components/CustomerFirms';
 import CustomerGR from './components/CustomerGR';
 import LinksManager from './components/LinksManager';
-import BroadcastGroups from './components/BroadcastGroups';
 import ShopModelList from './components/ShopModelList';
 import ModelHistoryDetail from './components/ModelHistoryDetail';
 import InventoryLogDetail from './components/InventoryLogDetail';
@@ -524,7 +523,6 @@ const AppContent: React.FC = () => {
       case 'users': return <UserManagement currentUser={currentUser} />;
       case 'master_control': return <MasterControl />;
       case 'links': return <LinksManager currentUser={currentUser} />;
-      case 'broadcast': return <BroadcastGroups />;
       case 'order_reports': return <OrderReports />;
       case 'customer_order_report': return <CustomerOrderReports />;
       case 'order_summary': return <DailyFulfilledSummary />;

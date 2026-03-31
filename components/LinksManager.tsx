@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
     Search, Copy, X, Plus, Check, RefreshCw, Trash2, Send, ShoppingBag, 
     Layers, Smartphone, ArrowRight, LogOut, Loader2, QrCode, Globe, Link2, 
-    Settings2, Radio, CopyPlus, Users, User, CheckSquare, Square,
+    Settings2, CopyPlus, Users, User, CheckSquare, Square,
     Package, ChevronRight, Lock, ChevronUp, ChevronDown, ShoppingCart, AlertCircle,
     CreditCard, ReceiptText, History, RotateCcw, CheckCircle2, Building2,
     Download, Share2, ChevronLeft, ChevronRight as ChevronRightIcon, Target, MessageSquare, UserCheck, CheckCircle,
@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { InventoryItem, Customer, Order, OrderItem, Firm, User as UserType } from '../types';
 import { MOCK_INVENTORY } from '../constants';
-import { fetchLinks, addLinkToDB, updateLinkInDB, deleteLinkFromDB, fetchInventory, fetchGroups, fetchCustomers, fetchOrders, addOrderToDB, fetchFirms, fetchMasterRecords } from '../services/db';
+import { fetchLinks, addLinkToDB, updateLinkInDB, deleteLinkFromDB, fetchInventory, fetchOrders, addOrderToDB, fetchFirms, fetchMasterRecords } from '../services/db';
 import { useNotification } from '../context/NotificationContext';
 import CustomerPortal from './CustomerPortal';
 
@@ -37,8 +37,6 @@ const LinksManager: React.FC<LinksManagerProps> = ({ currentUser }) => {
   const [links, setLinks] = useState<LinkEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [broadcastGroups, setBroadcastGroups] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [availableWarehouses, setAvailableWarehouses] = useState<string[]>([]);
   const { showNotification } = useNotification();
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,7 +47,6 @@ const LinksManager: React.FC<LinksManagerProps> = ({ currentUser }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isManageModelsOpen, setIsManageModelsOpen] = useState(false);
   const [visibilityPane, setVisibilityPane] = useState<'master' | 'link'>('master');
-  const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
   
   const [activeLink, setActiveLink] = useState<LinkEntry | null>(null);
   const [newLinkData, setNewLinkData] = useState({ title: '', warehouse: 'Main Warehouse' });
@@ -61,11 +58,9 @@ const LinksManager: React.FC<LinksManagerProps> = ({ currentUser }) => {
   const [vItemsPerPage, setVItemsPerPage] = useState(20);
   const [selectedMasterIds, setSelectedMasterIds] = useState<string[]>([]);
   const [selectedPortalIds, setSelectedPortalIds] = useState<string[]>([]);
-
-  const [broadcastType, setBroadcastType] = useState<'groups' | 'customers'>('groups');
-  const [selectedBroadcastIds, setSelectedBroadcastIds] = useState<string[]>([]);
-  const [broadcastMessage, setBroadcastMessage] = useState('');
-  const [recipientSearch, setRecipientSearch] = useState('');
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(6);
 
   const filteredLinks = useMemo(() => {
     return links.filter(l => 
@@ -74,22 +69,29 @@ const LinksManager: React.FC<LinksManagerProps> = ({ currentUser }) => {
     );
   }, [links, searchTerm]);
 
+  const paginatedLinks = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredLinks.slice(start, start + itemsPerPage);
+  }, [filteredLinks, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredLinks.length / itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
       setLoading(true);
       try {
-          const [dbLinks, dbInv, dbGroups, dbCustomers, dbWarehouses] = await Promise.all([
+          const [dbLinks, dbInv, dbWarehouses] = await Promise.all([
               fetchLinks(), 
               fetchInventory(), 
-              fetchGroups(),
-              fetchCustomers(),
               fetchMasterRecords('warehouse')
           ]);
           setLinks(dbLinks || []);
           setInventory(dbInv?.length > 0 ? dbInv : MOCK_INVENTORY);
-          setBroadcastGroups(dbGroups || []);
-          setCustomers(dbCustomers || []);
           
           // Ensure "Main Warehouse" is at least present as a default if none exist
           const warehouseList = dbWarehouses.length > 0 ? dbWarehouses : ['Main Warehouse'];
@@ -265,27 +267,9 @@ const LinksManager: React.FC<LinksManagerProps> = ({ currentUser }) => {
       }
   };
 
-  const handleSendBroadcast = () => {
-      if (selectedBroadcastIds.length === 0) { showNotification('Please select recipients', 'error'); return; }
-      showNotification(`Broadcast initiated for ${selectedBroadcastIds.length} recipients`, 'success');
-      setIsBroadcastOpen(false);
-      setSelectedBroadcastIds([]);
-  };
-
-  const handleOpenBroadcast = (link: LinkEntry) => {
-    setActiveLink(link);
-    setBroadcastMessage(`Check our new portal: ${window.location.origin}${window.location.pathname}?portal=${link.code}`);
-    setIsBroadcastOpen(true);
-  };
-
-  const filteredRecipients = useMemo(() => {
-      if (broadcastType === 'groups') return (broadcastGroups || []).filter(g => (g.name || '').toLowerCase().includes(recipientSearch.toLowerCase()));
-      return (customers || []).filter(c => (c.name || '').toLowerCase().includes(recipientSearch.toLowerCase()) || (c.phone || '').includes(recipientSearch));
-  }, [broadcastType, broadcastGroups, customers, recipientSearch]);
-
   if (simulationMode && activeLink) {
       const allowedInventory = inventory.filter(i => i.status !== 'Inactive' && (activeLink.allowedModels || []).includes(i.id));
-      return <CustomerPortal storeName={activeLink.title} status={activeLink.status} onClose={() => setSimulationMode(false)} inventory={allowedInventory} allCustomers={customers} instanceId={activeLink.instanceId} />;
+      return <CustomerPortal storeName={activeLink.title} status={activeLink.status} onClose={() => setSimulationMode(false)} inventory={allowedInventory} allCustomers={[]} instanceId={activeLink.instanceId} />;
   }
 
   return (
@@ -303,7 +287,7 @@ const LinksManager: React.FC<LinksManagerProps> = ({ currentUser }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-8">
-        {loading ? Array(3).fill(0).map((_, i) => (<div key={i} className="h-[380px] bg-white rounded-[2.5rem] border border-slate-200 animate-pulse"></div>)) : filteredLinks.map(link => (
+        {loading ? Array(3).fill(0).map((_, i) => (<div key={i} className="h-[380px] bg-white rounded-[2.5rem] border border-slate-200 animate-pulse"></div>)) : paginatedLinks.map(link => (
             <div key={link.id} className={`bg-white group rounded-[2.5rem] border border-slate-200 p-8 shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col h-full ${link.status === 'Disabled' ? 'grayscale-[0.5] opacity-70' : ''}`}>
                 <div className="flex justify-between items-start mb-8">
                     <div><div className="flex items-center gap-3 mb-3"><div className={`w-2.5 h-2.5 rounded-full ${link.status === 'Enabled' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div><span className={`text-[10px] font-bold uppercase tracking-widest ${link.status === 'Enabled' ? 'text-emerald-600' : 'text-rose-500'}`}>{link.status}</span></div><div className="flex items-center gap-3"><h3 className={`text-xl font-black uppercase tracking-tighter ${link.status === 'Enabled' ? 'text-slate-900' : 'text-slate-400'}`}>{link.title}</h3><button onClick={() => { setActiveLink(link); setNewLinkData({title: link.title, warehouse: link.warehouse}); setIsEditModalOpen(true); }} className="p-1.5 rounded-lg bg-slate-50 text-slate-300 hover:text-indigo-600 transition-all opacity-0 group-hover:opacity-100"><Pencil size={14}/></button></div><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Center: {link.warehouse}</p></div>
@@ -317,13 +301,19 @@ const LinksManager: React.FC<LinksManagerProps> = ({ currentUser }) => {
                         <button onClick={() => { setActiveLink(link); setSimulationMode(true); }} className="flex items-center justify-center gap-2 py-3.5 bg-indigo-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 shadow-lg shadow-indigo-100 transition-all"><Smartphone size={16}/> Simulate</button>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                        <button onClick={() => handleOpenBroadcast(link)} className="flex items-center justify-center gap-2 py-3.5 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all"><Radio size={16}/> Broadcast</button>
-                        <button onClick={() => handleDuplicate(link)} className="flex items-center justify-center gap-2 py-3.5 bg-slate-50 text-slate-500 border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all"><CopyPlus size={16}/> Duplicate</button>
+                        <button onClick={() => handleDuplicate(link)} className="flex items-center justify-center gap-2 py-3.5 bg-slate-50 text-slate-500 border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all col-span-2"><CopyPlus size={16}/> Duplicate</button>
                     </div>
                 </div>
             </div>
         ))}
       </div>
+      
+      {totalPages > 1 && (
+        <div className="px-8 py-5 bg-white border border-slate-200 rounded-3xl flex items-center justify-between shrink-0">
+            <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Showing <span className="text-slate-900">{filteredLinks.length ? (currentPage - 1) * itemsPerPage + 1 : 0}-{Math.min(filteredLinks.length, currentPage * itemsPerPage)}</span> of <span className="text-slate-900">{filteredLinks.length}</span></div>
+            <div className="flex items-center gap-2"><button disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition-all"><ChevronLeft size={18}/></button><div className="flex items-center gap-1">{Array.from({ length: Math.min(5, totalPages) }, (_, i) => (<button key={i} onClick={() => setCurrentPage(i+1)} className={`w-8 h-8 rounded-lg text-[10px] font-black transition-all ${currentPage === i+1 ? 'bg-indigo-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-500'}`}>{i+1}</button>))}</div><button disabled={currentPage === totalPages || totalPages === 0} onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition-all"><ChevronRightIcon size={18}/></button></div>
+        </div>
+      )}
 
       {isManageModelsOpen && activeLink && (
         <div className="fixed inset-0 bg-[#f8fafc] z-[160] flex flex-col animate-in slide-in-from-bottom-5 duration-300">
@@ -402,39 +392,7 @@ const LinksManager: React.FC<LinksManagerProps> = ({ currentUser }) => {
           </div>
       )}
 
-      {/* BROADCAST MODAL */}
-      {isBroadcastOpen && activeLink && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95">
-                <div className="px-10 py-8 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
-                    <div className="flex items-center gap-5">
-                        <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg"><Radio size={28} /></div>
-                        <div><h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter leading-none">Share Portal</h3><p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-2 italic">Broadcasting Link for <span className="text-indigo-600">{activeLink.title}</span></p></div>
-                    </div>
-                    <button onClick={() => setIsBroadcastOpen(false)} className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-all hover:rotate-90 shadow-sm"><X size={24}/></button>
-                </div>
-                <div className="flex-1 overflow-y-auto p-10 space-y-8 bg-slate-50/30 custom-scrollbar">
-                    <div className="space-y-3">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Auto-Generated Message</label>
-                        <textarea value={broadcastMessage} onChange={e => setBroadcastMessage(e.target.value)} className="w-full px-6 py-4 bg-white border border-slate-200 rounded-2xl text-[13px] font-bold text-slate-600 outline-none focus:border-emerald-500 transition-all min-h-[100px] resize-none shadow-sm" />
-                    </div>
-                    <div className="space-y-4">
-                        <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-200"><button onClick={() => { setBroadcastType('groups'); setSelectedBroadcastIds([]); }} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${broadcastType === 'groups' ? 'bg-white text-emerald-600 shadow-md' : 'text-slate-400'}`}>Target Groups</button><button onClick={() => { setBroadcastType('customers'); setSelectedBroadcastIds([]); }} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${broadcastType === 'customers' ? 'bg-white text-emerald-600 shadow-md' : 'text-slate-400'}`}>Direct Customers</button></div>
-                        <div className="relative group"><Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" value={recipientSearch} onChange={e => setRecipientSearch(e.target.value)} placeholder={`Search ${broadcastType}...`} className="w-full pl-11 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl text-xs font-bold uppercase outline-none focus:ring-8 focus:ring-emerald-500/5 transition-all shadow-sm" /></div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                            {filteredRecipients.map(item => (
-                                <button key={item.id} onClick={() => setSelectedBroadcastIds(prev => prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id])} className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between group ${selectedBroadcastIds.includes(item.id) ? 'bg-emerald-50 border-emerald-200 shadow-sm' : 'bg-white border-slate-100 hover:border-emerald-100'}`}><div className="min-w-0 pr-2"><p className={`text-[12px] font-black uppercase tracking-tight truncate leading-none ${selectedBroadcastIds.includes(item.id) ? 'text-emerald-600' : 'text-slate-800'}`}>{item.name}</p><p className="text-[9px] font-bold text-slate-400 uppercase mt-1.5">{broadcastType === 'groups' ? `${(item.members || []).length} Members` : item.phone}</p></div><div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${selectedBroadcastIds.includes(item.id) ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-200'}`}>{selectedBroadcastIds.includes(item.id) && <Check size={12} strokeWidth={4}/>}</div></button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-                <div className="px-10 py-6 bg-white border-t border-slate-100 flex items-center justify-between shrink-0">
-                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{selectedBroadcastIds.length} Recipients Selected</span>
-                    <button onClick={handleSendBroadcast} disabled={selectedBroadcastIds.length === 0} className="px-10 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-emerald-100 hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"><Send size={16}/> Start Broadcast</button>
-                </div>
-            </div>
-        </div>
-      )}
+
     </div>
   );
 };

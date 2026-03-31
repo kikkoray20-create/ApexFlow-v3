@@ -1,18 +1,3 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
-
-# ApexFlow v2.7.5 🚀
-
-## 🔗 Firebase से कैसे कनेक्ट करें? (Connectivity Guide)
-
-अगर आपको Header में "Offline Mode" दिख रहा है, तो मतलब Firebase कनेक्ट नहीं है। इसे ठीक करने के लिए:
-
-1. **Firebase Console** (console.firebase.google.com) पर जाएं।
-2. अपना प्रोजेक्ट चुनें और "Web App" सेटिंग्स से अपनी **API Keys** कॉपी करें।
-3. अपने **GitHub** रिपॉजिटरी में जाएं।
-4. **Settings > Secrets and variables > Actions** पर क्लिक करें।
-5. **New repository secret** बटन दबाएं और नीचे दी गई 6 चीज़ें एक-एक करके भरें:
    - `VITE_FIREBASE_API_KEY`
    - `VITE_FIREBASE_AUTH_DOMAIN`
    - `VITE_FIREBASE_PROJECT_ID`
@@ -20,8 +5,69 @@
    - `VITE_FIREBASE_MESSAGING_SENDER_ID`
    - `VITE_FIREBASE_APP_ID`
 
-6. ये सब भरने के बाद, Google AI Studio में आकर फिर से **Push/Update** करें। आपका ऐप क्लाउड से कनेक्ट हो जाएगा!
-
 ## Local Run
 1. `npm install`
 2. `npm run dev`
+
+
+.github/workflows/deploy.yml
+
+
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Project
+        # यहां GitHub Secrets को Vite के लिए पास किया जा रहा है
+        run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

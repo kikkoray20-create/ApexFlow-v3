@@ -33,7 +33,6 @@ export const SIDEBAR_ITEMS: SidebarItem[] = [
     isOpen: false 
   },
   { id: 'links', label: 'Links', icon: <LinkIcon size={18} /> },
-  { id: 'broadcast', label: 'Broadcast Groups', icon: <Radio size={18} /> },
   { id: 'models', label: 'Model & Inventory', icon: <Box size={18} />, subItems: [{ label: 'Shop Model List', id: 'models' }, { label: 'Inventory', id: 'inventory' }], isOpen: false },
   { 
     id: 'users', 
