@@ -32,11 +32,13 @@ const KEYS = {
 // Universal fetcher with Cloud Priority & Intelligent Merging
 const getData = async (collectionName: string, localKey: string, fallbackData: any[] = [], instanceId?: string) => {
     const localStoreKey = `apexflow_local_${localKey}`;
+    console.log(`🔍 Fetching from collection: ${collectionName}`);
     
     if (db) {
         try {
             const collectionRef = collection(db, collectionName);
             const querySnapshot = await getDocs(collectionRef);
+            console.log(`📊 Found ${querySnapshot.size} documents in ${collectionName}`);
             let cloudData = querySnapshot.docs.map(doc => ({ ...doc.data() as any, id: doc.id }));
             
             if (instanceId) {
