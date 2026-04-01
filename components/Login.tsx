@@ -53,10 +53,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
     try {
         const users = await fetchUsers();
+        console.log("Fetched users:", users);
+        console.log("Searching for mobile:", cleanMobile, "and password:", cleanPass);
         const matchedUser = users.find(u => 
             u.phone.replace(/\s+/g, '').endsWith(cleanMobile) && 
             u.password === cleanPass
         );
+        console.log("Matched user:", matchedUser);
 
         setTimeout(() => {
             if (matchedUser) {
