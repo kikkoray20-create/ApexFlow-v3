@@ -376,7 +376,8 @@ export const fetchMasterRecords = async (type: string): Promise<string[]> => {
 };
 
 export const addMasterRecord = (type: string, value: string) => {
-    const id = `${type}_${value.replace(/\s+/g, '_').toLowerCase()}`;
+    // Replace spaces and slashes with underscores to prevent Firestore path issues
+    const id = `${type}_${value.replace(/[\s/]+/g, '_').toLowerCase()}`;
     return saveData(`master_${type}`, `master_${type}`, { id, value: value.toUpperCase() });
 };
 
