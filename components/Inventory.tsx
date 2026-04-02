@@ -454,18 +454,23 @@ const Inventory: React.FC<InventoryProps> = ({ currentUser, onViewLog }) => {
                                             <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
                                             
                                             {showItemDropdown && modalFilteredInventory.length > 0 && (
-                                                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden max-h-60 overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2">
+                                                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden max-h-80 overflow-y-auto custom-scrollbar animate-in slide-in-from-top-2">
                                                     {modalFilteredInventory.map(i => (
                                                         <button key={i.id} onClick={() => { setSelectedItem(i); setModalSearch(`${i.brand} ${i.model}`); setShowItemDropdown(false); }} className="w-full text-left px-5 py-3.5 hover:bg-indigo-50 border-b border-slate-50 last:border-0 flex items-center justify-between group transition-colors">
-                                                            <div className="min-w-0 pr-4">
-                                                                <div className="flex items-center gap-2 mb-0.5">
-                                                                    <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest px-1.5 py-0.5 bg-indigo-50 rounded border border-indigo-100">{i.brand}</span>
-                                                                    <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest px-1.5 py-0.5 bg-emerald-50 rounded border border-emerald-100">{i.quality}</span>
+                                                            <div className="min-w-0 pr-4 flex-1">
+                                                                <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                                                    <span className="text-[7px] font-black text-indigo-500 uppercase tracking-widest px-1.5 py-0.5 bg-indigo-50 rounded border border-indigo-100">{i.brand}</span>
+                                                                    <span className="text-[7px] font-black text-emerald-500 uppercase tracking-widest px-1.5 py-0.5 bg-emerald-50 rounded border border-emerald-100">{i.quality}</span>
+                                                                    <span className="text-[7px] font-black text-amber-500 uppercase tracking-widest px-1.5 py-0.5 bg-amber-50 rounded border border-amber-100">{i.category || 'N/A'}</span>
+                                                                    <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${i.status === 'Active' ? 'text-blue-500 bg-blue-50 border-blue-100' : 'text-slate-400 bg-slate-50 border-slate-100'}`}>{i.status || 'Active'}</span>
                                                                 </div>
-                                                                <p className="text-[12px] font-black text-slate-800 uppercase truncate">{i.model}</p>
+                                                                <p className="text-[13px] font-black text-slate-800 uppercase truncate">{i.model}</p>
+                                                                <div className="flex items-center gap-3 mt-1">
+                                                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Layers size={8}/> {i.warehouse || 'Main Hub'}</p>
+                                                                </div>
                                                             </div>
                                                             <div className="text-right shrink-0">
-                                                                <p className="text-[11px] font-black text-emerald-600 tracking-tighter">₹{i.price.toFixed(1)}</p>
+                                                                <p className="text-[12px] font-black text-emerald-600 tracking-tighter">₹{i.price.toFixed(1)}</p>
                                                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Stock: {i.quantity}</p>
                                                             </div>
                                                         </button>
@@ -513,13 +518,17 @@ const Inventory: React.FC<InventoryProps> = ({ currentUser, onViewLog }) => {
                                                     <div className="flex items-center gap-5 flex-1 min-w-0">
                                                         <div className="w-9 h-9 bg-slate-50 rounded-lg flex items-center justify-center font-black text-[10px] text-indigo-500 border border-slate-100 shrink-0 uppercase">{si.item.brand.charAt(0)}</div>
                                                         <div className="min-w-0 pr-4 flex-1">
-                                                            <div className="flex items-center gap-2 mb-0.5">
+                                                            <div className="flex flex-wrap items-center gap-2 mb-1">
                                                                 <span className="text-[12px] font-black text-slate-900 uppercase truncate leading-none">{si.item.model}</span>
-                                                                <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest shrink-0">{si.item.quality}</span>
+                                                                <span className="text-[7px] font-black text-indigo-500 uppercase tracking-widest px-1.5 py-0.5 bg-indigo-50 rounded border border-indigo-100">{si.item.brand}</span>
+                                                                <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest px-1.5 py-0.5 bg-slate-50 rounded border border-slate-100">{si.item.quality}</span>
+                                                                <span className="text-[7px] font-black text-amber-500 uppercase tracking-widest px-1.5 py-0.5 bg-amber-50 rounded border border-amber-100">{si.item.category || 'N/A'}</span>
+                                                                <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border ${si.item.status === 'Active' ? 'text-blue-500 bg-blue-50 border-blue-100' : 'text-slate-400 bg-slate-50 border-slate-100'}`}>{si.item.status || 'Active'}</span>
                                                             </div>
                                                             <div className="flex items-center gap-3">
                                                                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Layers size={9}/> {si.item.warehouse || 'Main Hub'}</p>
                                                                 <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">₹{si.item.price.toFixed(1)}</p>
+                                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Stock: {si.item.quantity}</p>
                                                             </div>
                                                         </div>
                                                     </div>
