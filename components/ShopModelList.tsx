@@ -5,7 +5,7 @@ import {
     Filter, X, Package, Tag, PlusCircle, MinusCircle, ClipboardList, 
     ChevronLeft, ChevronRight, MoreHorizontal, LayoutGrid, List, Settings2, 
     Trash2, Box, Layers, ArrowUpDown, CheckCircle, AlertCircle, Info, Database,
-    SearchCode, Check
+    SearchCode, Check, ArrowLeft
 } from 'lucide-react';
 import { User, InventoryItem, InventoryLog } from '../types';
 import { fetchInventory, updateInventoryItemInDB, addInventoryItemToDB, addInventoryLogToDB, fetchMasterRecords, addMasterRecord, deleteMasterRecord, fetchLinks, updateLinkInDB } from '../services/db';
@@ -40,23 +40,27 @@ const ShopModelList: React.FC<ShopModelListProps> = ({ onViewModel, currentUser 
     const [itemsPerPage, setItemsPerPage] = useState(20);
 
     // Master Records States
-    const [masters, setMasters] = useState<{ brands: string[], qualities: string[], categories: string[], models: string[], warehouses: string[] }>({
+    const [masters, setMasters] = useState<{ brands: any[], qualities: any[], categories: any[], models: any[], warehouses: any[] }>({
         brands: [], qualities: [], categories: [], models: [], warehouses: []
     });
-    const [masterModal, setMasterModal] = useState<{ isOpen: boolean, type: 'brand' | 'quality' | 'category' | 'model' | 'warehouse' | null }>({ isOpen: false, type: null });
+    const [isEntityManagerView, setIsEntityManagerView] = useState(false);
+    const [activeEntityType, setActiveEntityType] = useState<'brand' | 'quality' | 'category' | 'model' | 'warehouse' | null>(null);
+    const [entitySearchTerm, setEntitySearchTerm] = useState('');
     const [masterInput, setMasterInput] = useState('');
     const [isMasterSaving, setIsMasterSaving] = useState(false);
 
     // Search & Filters
     const [searchTerm, setSearchTerm] = useState('');
     const [warehouseFilter, setWarehouseFilter] = useState('All Warehouse');
-    const [statusFilter, setStatusFilter] = useState('All Status');
+    const [statusFilter, setStatusFilter] = useState('Active');
 
     // Sorting
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: null });
 
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [focusedPriceId, setFocusedPriceId] = useState<string | null>(null);
+    const [isPriceInputFocused, setIsPriceInputFocused] = useState(false);
 
     // Stock Adjustment Modal State
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -226,7 +230,7 @@ const ShopModelList: React.FC<ShopModelListProps> = ({ onViewModel, currentUser 
 
     const handleMasterSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!masterInput.trim() || !masterModal.type) return;
+        if (!masterInput.trim() || !activeEntityType) return;
 
         const val = masterInput.trim().toUpperCase();
         const pluralKeyMap: Record<string, keyof typeof masters> = {
@@ -236,20 +240,20 @@ const ShopModelList: React.FC<ShopModelListProps> = ({ onViewModel, currentUser 
             model: 'models',
             warehouse: 'warehouses'
         };
-        const key = pluralKeyMap[masterModal.type];
+        const key = pluralKeyMap[activeEntityType];
 
-        if (masters[key].some(item => item.toUpperCase() === val)) {
-            showNotification(`${masterModal.type} entry already exists`, 'error');
+        if (masters[key].some(item => item.value.toUpperCase() === val)) {
+            showNotification(`${activeEntityType} entry already exists`, 'error');
             return;
         }
 
         setIsMasterSaving(true);
         try {
-            await addMasterRecord(masterModal.type, val);
-            const updatedList = await fetchMasterRecords(masterModal.type);
+            await addMasterRecord(activeEntityType, val);
+            const updatedList = await fetchMasterRecords(activeEntityType);
             setMasters(prev => ({ ...prev, [key]: updatedList }));
             setMasterInput('');
-            showNotification(`New ${masterModal.type} recorded`);
+            showNotification(`New ${activeEntityType} recorded`);
         } finally {
             setIsMasterSaving(false);
         }
@@ -373,12 +377,12 @@ const ShopModelList: React.FC<ShopModelListProps> = ({ onViewModel, currentUser 
         }
     };
 
-    const brandsList = (masters.brands?.length > 0) ? masters.brands : Array.from(new Set(items.map(i => i.brand))).filter(Boolean).sort();
-    const qualitiesList = (masters.qualities?.length > 0) ? masters.qualities : Array.from(new Set(items.map(i => i.quality))).filter(Boolean).sort();
-    const categoriesList = (masters.categories?.length > 0) ? masters.categories : Array.from(new Set(items.map(i => i.category))).filter(Boolean).sort();
-    const modelsList = (masters.models?.length > 0) ? masters.models : Array.from(new Set(items.map(i => i.model))).filter(Boolean).sort();
+    const brandsList = (masters.brands?.length > 0) ? masters.brands.map(b => b.value) : Array.from(new Set(items.map(i => i.brand))).filter(Boolean).sort();
+    const qualitiesList = (masters.qualities?.length > 0) ? masters.qualities.map(q => q.value) : Array.from(new Set(items.map(i => i.quality))).filter(Boolean).sort();
+    const categoriesList = (masters.categories?.length > 0) ? masters.categories.map(c => c.value) : Array.from(new Set(items.map(i => i.category))).filter(Boolean).sort();
+    const modelsList = (masters.models?.length > 0) ? masters.models.map(m => m.value) : Array.from(new Set(items.map(i => i.model))).filter(Boolean).sort();
     const uniqueWarehousesList = (masters.warehouses?.length > 0) 
-        ? masters.warehouses.filter(w => w !== 'All Warehouse').sort()
+        ? masters.warehouses.map(w => w.value).filter(w => w !== 'All Warehouse').sort()
         : Array.from(new Set(items.map(i => i.warehouse))).filter(w => w && w !== 'All Warehouse' && w !== 'Main Warehouse').sort();
 
     const filteredItems = useMemo(() => {
@@ -429,6 +433,122 @@ const ShopModelList: React.FC<ShopModelListProps> = ({ onViewModel, currentUser 
     const selectStyles = "appearance-none bg-white border border-slate-200 rounded-[2rem] px-6 py-3.5 text-[10px] font-black uppercase tracking-widest outline-none pr-12 w-full cursor-pointer hover:bg-slate-50 transition-all focus:border-indigo-500 focus:ring-8 focus:ring-indigo-500/5 shadow-sm text-slate-600";
     const iconStyles = "absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none";
 
+    if (isEntityManagerView && activeEntityType) {
+        const pluralKeyMap: Record<string, keyof typeof masters> = {
+            brand: 'brands',
+            quality: 'qualities',
+            category: 'categories',
+            model: 'models',
+            warehouse: 'warehouses'
+        };
+        const list = masters[pluralKeyMap[activeEntityType]] || [];
+        const filteredList = list.filter(item => 
+            item.value.toLowerCase().includes(entitySearchTerm.toLowerCase())
+        );
+
+        return (
+            <div className="min-h-screen bg-[#f8fafc] p-8 space-y-8 animate-in fade-in duration-500">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-5">
+                        <button 
+                            onClick={() => setIsEntityManagerView(false)}
+                            className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm"
+                        >
+                            <ArrowLeft size={24} />
+                        </button>
+                        <div>
+                            <h2 className="text-2xl font-black text-slate-800 tracking-tighter uppercase leading-none">
+                                {activeEntityType} Manager
+                            </h2>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-2">
+                                Centralized {activeEntityType} Database Control
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <div className="relative group">
+                            <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                            <input 
+                                type="text"
+                                placeholder={`Search ${activeEntityType}s...`}
+                                value={entitySearchTerm}
+                                onChange={(e) => setEntitySearchTerm(e.target.value)}
+                                className="pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold uppercase outline-none focus:border-indigo-500 focus:ring-8 focus:ring-indigo-500/5 transition-all w-80 shadow-sm"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+                    <div className="p-10 border-b border-slate-100 bg-slate-50/50">
+                        <form onSubmit={handleMasterSave} className="flex gap-4 max-w-2xl">
+                            <div className="flex-1 relative group">
+                                <Plus size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                                <input 
+                                    type="text"
+                                    value={masterInput}
+                                    onChange={(e) => setMasterInput(e.target.value)}
+                                    placeholder={`Enter new ${activeEntityType} name...`}
+                                    className="w-full pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold uppercase outline-none focus:border-indigo-500 transition-all shadow-sm"
+                                />
+                            </div>
+                            <button 
+                                type="submit"
+                                disabled={isMasterSaving || !masterInput.trim()}
+                                className="px-10 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-indigo-100 hover:bg-indigo-700 disabled:opacity-50 transition-all active:scale-95 flex items-center gap-3"
+                            >
+                                {isMasterSaving ? <Loader2 size={18} className="animate-spin" /> : <><Plus size={18} strokeWidth={3} /> Add {activeEntityType}</>}
+                            </button>
+                        </form>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50/80">
+                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Sr. No.</th>
+                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Name</th>
+                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">Created At</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {filteredList.length > 0 ? filteredList.map((item, index) => (
+                                    <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-10 py-6 text-xs font-black text-slate-400">{index + 1}</td>
+                                        <td className="px-10 py-6">
+                                            <span className="text-sm font-black text-slate-700 uppercase tracking-tight">{item.value}</span>
+                                        </td>
+                                        <td className="px-10 py-6">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                {item.updatedAt ? new Date(item.updatedAt).toLocaleString('en-IN', {
+                                                    day: '2-digit',
+                                                    month: 'short',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                }) : 'LEGACY RECORD'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={3} className="px-10 py-20 text-center">
+                                            <div className="flex flex-col items-center gap-4 opacity-20">
+                                                <Database size={48} />
+                                                <p className="text-sm font-black uppercase tracking-widest">No {activeEntityType}s found</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col space-y-8 animate-in fade-in duration-500 pb-10">
 
@@ -448,7 +568,10 @@ const ShopModelList: React.FC<ShopModelListProps> = ({ onViewModel, currentUser 
                     {['brand', 'quality', 'category', 'model', 'warehouse'].map(type => (
                         <button 
                             key={type}
-                            onClick={() => setMasterModal({ isOpen: true, type: type as any })}
+                            onClick={() => {
+                                setActiveEntityType(type as any);
+                                setIsEntityManagerView(true);
+                            }}
                             className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 hover:border-indigo-200 hover:shadow-sm transition-all flex items-center gap-2"
                         >
                             <Settings2 size={12} strokeWidth={3} /> {type}s
@@ -552,12 +675,16 @@ const ShopModelList: React.FC<ShopModelListProps> = ({ onViewModel, currentUser 
                                             <input 
                                                 type="number" 
                                                 step="0.01"
-                                                value={item.price || ''} 
+                                                value={focusedPriceId === item.id ? (item.price || '') : (item.price || 0).toFixed(1)} 
+                                                onFocus={() => setFocusedPriceId(item.id)}
                                                 onChange={(e) => {
                                                     const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
                                                     setItems(prev => prev.map(i => i.id === item.id ? { ...i, price: val } : i));
                                                 }}
-                                                onBlur={(e) => handlePriceUpdate(item.id, parseFloat(e.target.value) || 0)}
+                                                onBlur={(e) => {
+                                                    setFocusedPriceId(null);
+                                                    handlePriceUpdate(item.id, parseFloat(e.target.value) || 0);
+                                                }}
                                                 className="w-full pl-5 pr-2 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-[12px] font-black text-emerald-600 text-center outline-none focus:bg-white focus:border-indigo-400 transition-all shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                             />
                                         </div>
@@ -649,26 +776,11 @@ const ShopModelList: React.FC<ShopModelListProps> = ({ onViewModel, currentUser 
                 )}
             </div>
 
-            {masterModal.isOpen && masterModal.type && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in zoom-in-95">
-                        <div className="px-10 py-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <div className="flex items-center gap-4"><div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg"><Settings2 size={24} strokeWidth={3} /></div><div><h3 className="text-xl font-black text-slate-800 uppercase tracking-tight leading-none">Entity Manager</h3><p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-2">Manage {masterModal.type} Database</p></div></div>
-                            <button onClick={() => setMasterModal({ isOpen: false, type: null })} className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-all hover:rotate-90"><X size={24} /></button>
-                        </div>
-                        <div className="p-10 space-y-8">
-                            <form onSubmit={handleMasterSave} className="space-y-4"><label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Add New {masterModal.type}</label><div className="flex gap-2"><input autoFocus type="text" value={masterInput} onChange={e => setMasterInput(e.target.value)} placeholder={`Enter ${masterModal.type} name...`} className="flex-1 px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold uppercase outline-none focus:bg-white focus:border-indigo-500 transition-all shadow-inner"/><button type="submit" disabled={isMasterSaving || !masterInput.trim()} className="px-6 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100 active:scale-95 disabled:opacity-50 transition-all">{isMasterSaving ? <Loader2 size={18} className="animate-spin" /> : <Plus size={24} strokeWidth={4} />}</button></div></form>
-                            <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-2">{(() => { const pluralKeyMap: Record<string, keyof typeof masters> = { brand: 'brands', quality: 'qualities', category: 'categories', model: 'models', warehouse: 'warehouses' }; const list = masters[pluralKeyMap[masterModal.type!]] || []; return list.map(val => (<div key={val} className="flex items-center justify-between px-5 py-4 bg-white rounded-2xl border border-slate-100 group hover:border-indigo-200 transition-all shadow-sm"><span className="text-xs font-black text-slate-700 uppercase tracking-tight">{val}</span></div>)); })()}</div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {isCreateModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[150] flex items-center justify-center p-4 animate-in fade-in duration-300">
                     <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-4xl overflow-hidden border border-slate-100 animate-in zoom-in-95">
                         <div className="px-10 py-6 border-b border-slate-100 flex justify-between items-center bg-white/80 backdrop-blur-md"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-100 shrink-0"><Box size={20} /></div><div><h3 className="text-lg font-black text-slate-800 uppercase tracking-tight leading-none">Model Initialization</h3><p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Search and link hardware specifications</p></div></div><button onClick={() => setIsCreateModalOpen(false)} className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:text-rose-500 transition-all hover:rotate-90 shadow-sm"><X size={20} /></button></div>
-                        <form onSubmit={handleCreateModel} className="p-10"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><ModalField label="Brand Identifier" required><SearchableSelect options={brandsList} value={createFormData.brand || ''} placeholder="Find brand..." onChange={val => setCreateFormData({ ...createFormData, brand: val })} /></ModalField><ModalField label="Quality Grade" required><SearchableSelect options={qualitiesList} value={createFormData.quality || ''} placeholder="Find quality..." onChange={val => setCreateFormData({ ...createFormData, quality: val })} /></ModalField><ModalField label="Inventory Category" required><SearchableSelect options={categoriesList} value={createFormData.category || ''} placeholder="Find category..." onChange={val => setCreateFormData({ ...createFormData, category: val })} /></ModalField><ModalField label="Specific Model Name" required><SearchableSelect options={modelsList} value={createFormData.model || ''} placeholder="Find model..." onChange={val => setCreateFormData({ ...createFormData, model: val })} /></ModalField><ModalField label="Standard Base Price (₹)" required><div className="relative"><span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 font-black text-sm">₹</span><input type="number" step="0.01" required value={createFormData.price || ''} onChange={e => setCreateFormData({ ...createFormData, price: e.target.value === '' ? 0 : Number(e.target.value) })} className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold uppercase text-slate-800 outline-none focus:bg-white focus:border-indigo-500 focus:ring-8 focus:ring-indigo-500/5 transition-all shadow-inner" placeholder="0.0"/></div></ModalField><ModalField label="Destination Warehouse" required><SearchableSelect options={masters.warehouses} value={createFormData.warehouse || ''} placeholder="Select warehouse..." onChange={val => setCreateFormData({ ...createFormData, warehouse: val })} /></ModalField></div><div className="flex justify-end gap-4 pt-12"><button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-10 py-4 bg-slate-50 text-slate-400 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all active:scale-95">Discard</button><button type="submit" className="px-14 py-4 bg-indigo-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 border border-indigo-400/20">Commit to Cloud Catalog</button></div></form>
+                        <form onSubmit={handleCreateModel} className="p-10"><div className="grid grid-cols-1 md:grid-cols-2 gap-8"><ModalField label="Brand Identifier" required><SearchableSelect options={brandsList} value={createFormData.brand || ''} placeholder="Find brand..." onChange={val => setCreateFormData({ ...createFormData, brand: val })} /></ModalField><ModalField label="Quality Grade" required><SearchableSelect options={qualitiesList} value={createFormData.quality || ''} placeholder="Find quality..." onChange={val => setCreateFormData({ ...createFormData, quality: val })} /></ModalField><ModalField label="Inventory Category" required><SearchableSelect options={categoriesList} value={createFormData.category || ''} placeholder="Find category..." onChange={val => setCreateFormData({ ...createFormData, category: val })} /></ModalField><ModalField label="Specific Model Name" required><SearchableSelect options={modelsList} value={createFormData.model || ''} placeholder="Find model..." onChange={val => setCreateFormData({ ...createFormData, model: val })} /></ModalField><ModalField label="Standard Base Price (₹)" required><div className="relative"><span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 font-black text-sm">₹</span><input type="number" step="0.01" required value={isPriceInputFocused ? (createFormData.price || '') : (createFormData.price || 0).toFixed(1)} onFocus={() => setIsPriceInputFocused(true)} onBlur={() => setIsPriceInputFocused(false)} onChange={e => setCreateFormData({ ...createFormData, price: e.target.value === '' ? 0 : Number(e.target.value) })} className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold uppercase text-slate-800 outline-none focus:bg-white focus:border-indigo-500 focus:ring-8 focus:ring-indigo-500/5 transition-all shadow-inner" placeholder="0.0"/></div></ModalField><ModalField label="Destination Warehouse" required><SearchableSelect options={masters.warehouses} value={createFormData.warehouse || ''} placeholder="Select warehouse..." onChange={val => setCreateFormData({ ...createFormData, warehouse: val })} /></ModalField></div><div className="flex justify-end gap-4 pt-12"><button type="button" onClick={() => setIsCreateModalOpen(false)} className="px-10 py-4 bg-slate-50 text-slate-400 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all active:scale-95">Discard</button><button type="submit" className="px-14 py-4 bg-indigo-600 text-white rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 border border-indigo-400/20">Commit to Cloud Catalog</button></div></form>
                     </div>
                 </div>
             )}

@@ -88,7 +88,7 @@ const LinksManager: React.FC<LinksManagerProps> = ({ currentUser }) => {
           const [dbLinks, dbInv, dbWarehouses] = await Promise.all([
               fetchLinks(), 
               fetchInventory(), 
-              fetchMasterRecords('warehouse')
+              fetchMasterRecords('warehouse').then(res => res.map((d: any) => d.value))
           ]);
           setLinks(dbLinks || []);
           setInventory(dbInv?.length > 0 ? dbInv : MOCK_INVENTORY);

@@ -170,7 +170,7 @@ const AppContent: React.FC = () => {
   const loadBaseData = async () => {
     const [usersData, warehousesData] = await Promise.all([
       fetchUsers(currentUser?.instanceId),
-      fetchMasterRecords('warehouse')
+      fetchMasterRecords('warehouse').then(res => res.map((d: any) => d.value))
     ]);
     setUsers(usersData);
     setAvailableWarehouses(warehousesData);

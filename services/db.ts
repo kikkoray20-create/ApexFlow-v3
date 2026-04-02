@@ -370,9 +370,9 @@ export const fetchRolePermissions = async (): Promise<RolePermissions[]> => {
 export const updateRolePermissions = (permission: RolePermissions) => 
     saveData(KEYS.role_permissions, 'role_permissions', { ...permission, id: permission.role }, true);
 
-export const fetchMasterRecords = async (type: string): Promise<string[]> => {
+export const fetchMasterRecords = async (type: string): Promise<any[]> => {
     const data = await getData(`master_${type}`, `master_${type}`, []);
-    return data.map((d: any) => d.value).sort();
+    return data.sort((a: any, b: any) => (a.value || '').localeCompare(b.value || ''));
 };
 
 export const addMasterRecord = (type: string, value: string) => {
