@@ -96,25 +96,38 @@ const AppContent: React.FC = () => {
     }
 
     // --- FIREBASE AUTH LISTENER ---
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
-            // User is signed in to Firebase Auth
-            const storedUser = localStorage.getItem('apexflow_auth_user');
-            if (storedUser) {
-                try {
-                    const user = JSON.parse(storedUser);
-                    setCurrentUser(user);
-                } catch (e) {
-                    localStorage.removeItem('apexflow_auth_user');
+    let unsubscribe = () => {};
+    if (auth) {
+        unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
+                // User is signed in to Firebase Auth
+                const storedUser = localStorage.getItem('apexflow_auth_user');
+                if (storedUser) {
+                    try {
+                        const user = JSON.parse(storedUser);
+                        setCurrentUser(user);
+                    } catch (e) {
+                        localStorage.removeItem('apexflow_auth_user');
+                    }
                 }
+            } else {
+                // User is signed out from Firebase Auth
+                setCurrentUser(null);
+                localStorage.removeItem('apexflow_auth_user');
             }
-        } else {
-            // User is signed out from Firebase Auth
-            setCurrentUser(null);
-            localStorage.removeItem('apexflow_auth_user');
+            setIsAuthChecking(false);
+        });
+    } else {
+        // Fallback if Firebase is not active
+        const storedUser = localStorage.getItem('apexflow_auth_user');
+        if (storedUser) {
+            try {
+                const user = JSON.parse(storedUser);
+                setCurrentUser(user);
+            } catch (e) {}
         }
         setIsAuthChecking(false);
-    });
+    }
 
     return () => unsubscribe();
   }, []);
