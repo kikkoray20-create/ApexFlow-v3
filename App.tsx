@@ -43,6 +43,8 @@ import {
     sendCloudPing,
     fetchMasterRecords
 } from './services/db';
+import { auth } from './firebaseConfig';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 
 const AppContent: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -88,25 +90,33 @@ const AppContent: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('portal');
     
-    const initializeApp = async () => {
-        if (code) {
-            setPortalCode(code);
-            await loadPortalData(code);
-        }
+    if (code) {
+        setPortalCode(code);
+        loadPortalData(code);
+    }
 
-        const storedUser = localStorage.getItem('apexflow_auth_user');
-        if (storedUser) {
-          try {
-            const user = JSON.parse(storedUser);
-            setCurrentUser(user);
-          } catch (e) {
+    // --- FIREBASE AUTH LISTENER ---
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+            // User is signed in to Firebase Auth
+            const storedUser = localStorage.getItem('apexflow_auth_user');
+            if (storedUser) {
+                try {
+                    const user = JSON.parse(storedUser);
+                    setCurrentUser(user);
+                } catch (e) {
+                    localStorage.removeItem('apexflow_auth_user');
+                }
+            }
+        } else {
+            // User is signed out from Firebase Auth
+            setCurrentUser(null);
             localStorage.removeItem('apexflow_auth_user');
-          }
         }
         setIsAuthChecking(false);
-    };
+    });
 
-    initializeApp();
+    return () => unsubscribe();
   }, []);
 
   const loadPortalData = async (code: string) => {
@@ -188,10 +198,15 @@ const AppContent: React.FC = () => {
     localStorage.setItem('apexflow_auth_user', JSON.stringify(user));
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('apexflow_auth_user');
-    showNotification('Session terminated');
+  const handleLogout = async () => {
+    try {
+        await signOut(auth);
+        setCurrentUser(null);
+        localStorage.removeItem('apexflow_auth_user');
+        showNotification('Session terminated');
+    } catch (error) {
+        console.error("Logout error:", error);
+    }
   };
 
   // Precise parsing of date/time string for accurate sorting

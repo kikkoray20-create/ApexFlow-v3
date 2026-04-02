@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { User as UserType } from '../types';
 import { Lock, Smartphone, Eye, EyeOff, ShieldCheck, Layers, ArrowRight, Loader2, AlertCircle, Cpu } from 'lucide-react';
 import { fetchUsers } from '../services/db';
+import { auth } from '../firebaseConfig';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 interface LoginProps {
   onLogin: (user: UserType) => void;
@@ -61,19 +63,44 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         );
         console.log("Matched user:", matchedUser);
 
-        setTimeout(() => {
-            if (matchedUser) {
-                if (!matchedUser.active) {
-                    setError('ACCESS REVOKED: ACCOUNT INACTIVE');
-                    setLoading(false);
-                    return;
-                }
-                onLogin(matchedUser);
-            } else {
-                setError('IDENTITY MISMATCH: INVALID MOBILE OR PIN');
+        if (matchedUser) {
+            if (!matchedUser.active) {
+                setError('ACCESS REVOKED: ACCOUNT INACTIVE');
                 setLoading(false);
+                return;
             }
-        }, 1000);
+
+            // --- FIREBASE AUTH INTEGRATION ---
+            // We use a dummy email for Firebase Auth to enable request.auth in rules
+            const dummyEmail = `${cleanMobile}@apexflow.com`;
+            const dummyPassword = `auth_${cleanPass}_secure`;
+
+            try {
+                // Try to sign in first
+                await signInWithEmailAndPassword(auth, dummyEmail, dummyPassword);
+                console.log("✅ Firebase Auth: Signed In");
+            } catch (authErr: any) {
+                if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential') {
+                    try {
+                        // If user doesn't exist in Auth, create them
+                        await createUserWithEmailAndPassword(auth, dummyEmail, dummyPassword);
+                        console.log("✅ Firebase Auth: Account Created & Signed In");
+                    } catch (createErr: any) {
+                        console.error("❌ Firebase Auth Creation Error:", createErr);
+                        // If creation fails (e.g. password too short), we still allow login 
+                        // but rules might fail later if not signed in.
+                    }
+                } else {
+                    console.error("❌ Firebase Auth Error:", authErr);
+                }
+            }
+            // ---------------------------------
+
+            onLogin(matchedUser);
+        } else {
+            setError('IDENTITY MISMATCH: INVALID MOBILE OR PIN');
+            setLoading(false);
+        }
     } catch (err) {
         setError('SECURE PROTOCOL ERROR: SYNC FAILED');
         setLoading(false);
