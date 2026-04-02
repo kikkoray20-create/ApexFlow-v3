@@ -96,6 +96,7 @@ const Customers: React.FC<CustomersProps> = ({ onCreateOrder, currentUser }) => 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [ledgerLimit, setLedgerLimit] = useState<number | 'All'>(50);
+  const [isPincodeLoading, setIsPincodeLoading] = useState(false);
 
   const [formData, setFormData] = useState<any>({
     name: '', countryCode: '+91', phone: '', firmId: '', nickname: '', type: 'Owner',
@@ -107,6 +108,31 @@ const Customers: React.FC<CustomersProps> = ({ onCreateOrder, currentUser }) => 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    const fetchPincodeData = async () => {
+      if (formData.pincode && formData.pincode.length === 6) {
+        setIsPincodeLoading(true);
+        try {
+          const response = await fetch(`https://api.postalpincode.in/pincode/${formData.pincode}`);
+          const data = await response.json();
+          if (data && data[0] && data[0].Status === 'Success') {
+            const postOffice = data[0].PostOffice[0];
+            setFormData((prev: any) => ({
+              ...prev,
+              city: postOffice.District,
+              state: postOffice.State
+            }));
+          }
+        } catch (error) {
+          console.error('Error fetching pincode data:', error);
+        } finally {
+          setIsPincodeLoading(false);
+        }
+      }
+    };
+    fetchPincodeData();
+  }, [formData.pincode]);
 
   const loadData = async () => {
     setLoading(true);
@@ -748,7 +774,14 @@ const Customers: React.FC<CustomersProps> = ({ onCreateOrder, currentUser }) => 
                             </div>
                             <div className="space-y-2">
                                 <label className={labelClass}>PINCODE</label>
-                                <input type="text" maxLength={6} value={formData.pincode} onChange={e => setFormData({...formData, pincode: e.target.value.replace(/\D/g, '')})} className={inputClass} placeholder="000000" />
+                                <div className="relative">
+                                    <input type="text" maxLength={6} value={formData.pincode} onChange={e => setFormData({...formData, pincode: e.target.value.replace(/\D/g, '')})} className={inputClass} placeholder="000000" />
+                                    {isPincodeLoading && (
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                                            <Loader2 size={16} className="animate-spin text-indigo-500" />
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
